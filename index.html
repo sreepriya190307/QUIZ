@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CS Quiz Game</title>
+<style>
+body { font-family: 'Poppins', sans-serif; background: linear-gradient(135deg,#0f2027,#203a43,#2c5364); color:white; text-align:center; padding:50px;}
+.container { max-width:600px; margin:auto; background:rgba(0,0,0,0.5); border-radius:20px; padding:30px; box-shadow:0 0 20px rgba(255,255,255,0.2); position:relative;}
+button { background:#00bcd4; color:white; border:none; border-radius:10px; padding:10px 20px; margin:10px; cursor:pointer; transition:0.3s;}
+button:hover {background:#008c9e;}
+.hidden{display:none;}
+#timer{font-size:1.2em;color:yellow;}
+#lives{font-size:1.2em;color:red;margin-bottom:10px;}
+#startScreen{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.9);display:flex;justify-content:center;align-items:center;flex-direction:column;z-index:9999;}
+#startScreen input{padding:10px;border-radius:8px;border:none;margin-bottom:10px;}
+.level-transition{font-size:2em;color:yellow;animation:fadeIn 1s ease;margin:10px 0;}
+@keyframes fadeIn{from{opacity:0;transform:scale(0.8);}to{opacity:1;transform:scale(1);}}
+.confetti{position:fixed;width:10px;height:10px;top:-10px;pointer-events:none;animation:fall 3s linear forwards;}
+@keyframes fall{to{transform:translateY(100vh) rotate(360deg);opacity:0;}}
+</style>
+</head>
+<body>
+
+<div id="startScreen">
+<h1>💻 CS Quiz Game 💻</h1>
+<input type="text" id="userNameInput" placeholder="Enter your name">
+<button id="startBtn">Let's Play!</button>
+</div>
+
+<div class="container hidden" id="gameContainer">
+<p id="levelText">Level: Basic – Question 1/5</p>
+<p id="scoreText">Score: 0</p>
+<p id="lives">❤️❤️❤️</p>
+<p id="timer">Time: 10s</p>
+<div id="quiz"></div>
+<button id="nextBtn" class="hidden">Next</button>
+<div id="message"></div>
+</div>
+
+<div class="container hidden" id="leaderboardContainer">
+<h2>🏆 Leaderboard 🏆</h2>
+<div id="leaderboard"></div>
+<button onclick="restartGame()">Play Again</button>
+</div>
+
+<!-- Sounds -->
+<audio id="correctSound" src="https://www.soundjay.com/buttons/sounds/button-4.mp3"></audio>
+<audio id="wrongSound" src="https://www.soundjay.com/buttons/sounds/button-10.mp3"></audio>
+<audio id="levelUpSound" src="https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3"></audio>
+<audio id="gameOverSound" src="https://www.soundjay.com/misc/sounds/fail-trombone-01.mp3"></audio>
+<audio id="timeUpSound" src="https://www.soundjay.com/button/sounds/beep-07.mp3"></audio>
+
+<script>
+// ----------------- Quiz Data -----------------
+const quizLevels = {
+Basic:[
+{q:"CPU stands for?",a:"Central Processing Unit",options:["Central Processing Unit","Computer Processing Unit","Control Processing Unit","Central Power Unit"],points:5},
+{q:"Pointing device?",a:"Mouse",options:["Mouse","Keyboard","Monitor","Printer"],points:5},
+{q:"RAM function?",a:"Temporary data storage",options:["Temporary data storage","Permanent storage","Processing","Display"],points:5},
+{q:"Python is?",a:"Programming Language",options:["Programming Language","Hardware","OS","Browser"],points:5},
+{q:"Computer calculations done by?",a:"CPU",options:["CPU","GPU","RAM","HDD"],points:5}
+],
+Medium:[
+{q:"Father of computers?",a:"Charles Babbage",options:["Charles Babbage","Alan Turing","Steve Jobs","Bill Gates"],points:10},
+{q:"Data structure LIFO?",a:"Stack",options:["Stack","Queue","Tree","Graph"],points:10},
+{q:"Connect computers over network?",a:"Router",options:["Router","Switch","Printer","USB"],points:10},
+{q:"Language for AI & Data?",a:"Python",options:["Python","Java","C","HTML"],points:10},
+{q:"IP stands for?",a:"Internet Protocol",options:["Internet Protocol","Internal Process","Information Provider","Internet Program"],points:10}
+],
+Hard:[
+{q:"O(n log n) sorting?",a:"Merge Sort",options:["Merge Sort","Bubble Sort","Selection Sort","Insertion Sort"],points:15},
+{q:"Logic gate outputs true only if both inputs true?",a:"AND",options:["AND","OR","XOR","NAND"],points:15},
+{q:"Java developed by?",a:"Sun Microsystems",options:["Sun Microsystems","IBM","Microsoft","Apple"],points:15},
+{q:"SQL stands for?",a:"Structured Query Language",options:["Structured Query Language","Simple Query Language","Sequential Query Language","Standard Query List"],points:15},
+{q:"NoSQL database?",a:"MongoDB",options:["MongoDB","MySQL","Oracle","SQL Server"],points:15}
+]
+};
+
+// ----------------- Variables -----------------
+let currentLevel="Basic", levelOrder=["Basic","Medium","Hard"];
+let index=0, score=0, chances=3, timer=10, timerInterval;
+let userName="", currentQuestions=[];
+const startScreen=document.getElementById("startScreen");
+const startBtn=document.getElementById("startBtn");
+const userNameInput=document.getElementById("userNameInput");
+const gameContainer=document.getElementById("gameContainer");
+const quiz=document.getElementById("quiz");
+const nextBtn=document.getElementById("nextBtn");
+const message=document.getElementById("message");
+const levelText=document.getElementById("levelText");
+const scoreText=document.getElementById("scoreText");
+const timerEl=document.getElementById("timer");
+const lives=document.getElementById("lives");
+const leaderboardContainer=document.getElementById("leaderboardContainer");
+const leaderboardDiv=document.getElementById("leaderboard");
+
+// ----------------- Start Game -----------------
+startBtn.addEventListener("click", ()=>{
+  const name=userNameInput.value.trim();
+  if(!name){ alert("Enter your name!"); return;}
+  userName=name;
+  startScreen.style.display="none";
+  gameContainer.classList.remove("hidden");
+  currentLevel="Basic"; index=0; score=0; chances=3;
+  currentQuestions=[...quizLevels[currentLevel]];
+  showQuestion();
+  updateLives();
+});
+
+// ----------------- Show Question -----------------
+function showQuestion(){
+  if(index>=currentQuestions.length) return levelUp();
+  const q=currentQuestions[index];
+  quiz.innerHTML=`<h3>${q.q}</h3>`+q.options.map(opt=>`<button onclick="checkAnswer('${opt}')">${opt}</button>`).join("");
+  nextBtn.classList.add("hidden"); message.innerHTML="";
+  timer=10; timerEl.innerText=`Time: ${timer}s`;
+  clearInterval(timerInterval);
+  timerInterval=setInterval(()=>{
+    timer--;
+    timerEl.innerText=`Time: ${timer}s`;
+    if(timer<=0){ clearInterval(timerInterval); document.getElementById("timeUpSound").play(); message.innerHTML="<p style='color:red'>Time's up ❌</p>"; gameOver(); }
+  },1000);
+  levelText.innerText=`Level: ${currentLevel} – Question ${index+1}/5`;
+}
+
+// ----------------- Check Answer -----------------
+function checkAnswer(ans){
+  clearInterval(timerInterval);
+  const q=currentQuestions[index];
+  if(ans===q.a){ document.getElementById("correctSound").play(); score+=q.points; message.innerHTML="<p style='color:lightgreen'>Correct ✅</p>"; createConfetti();}
+  else{ document.getElementById("wrongSound").play(); chances--; message.innerHTML="<p style='color:red'>Wrong ❌</p>"; updateLives(); if(chances<=0) return gameOver();}
+  scoreText.innerText=`${userName}'s Score: ${score}`;
+  nextBtn.classList.remove("hidden");
+}
+
+// ----------------- Next Button -----------------
+nextBtn.addEventListener("click", ()=>{ index++; showQuestion(); });
+
+// ----------------- Level Up -----------------
+function levelUp(){
+  document.getElementById("levelUpSound").play();
+  createConfetti();
+  const currIdx=levelOrder.indexOf(currentLevel);
+  if(currIdx<levelOrder.length-1){
+    currentLevel=levelOrder[currIdx+1];
+    currentQuestions=[...quizLevels[currentLevel]]; index=0;
+    message.innerHTML=`<div class="level-transition">Level Up! ${currentLevel}</div>`;
+    setTimeout(()=>{ showQuestion(); message.innerHTML=""; },1500);
+  } else gameOver();
+}
+
+// ----------------- Lives -----------------
+function updateLives(){ lives.innerText="❤️".repeat(chances); }
+
+// ----------------- Game Over -----------------
+function gameOver(){
+  clearInterval(timerInterval); gameContainer.classList.add("hidden");
+  document.getElementById("gameOverSound").play();
+  let allScores=JSON.parse(localStorage.getItem("csQuizScores")||"[]");
+  allScores.push({name:userName,score:score});
+  allScores.sort((a,b)=>b.score-a.score);
+  localStorage.setItem("csQuizScores", JSON.stringify(allScores));
+  leaderboardContainer.classList.remove("hidden");
+  leaderboardDiv.innerHTML="<ol>"+allScores.slice(0,10).map(p=>`<li>${p.name}: ${p.score}</li>`).join("")+"</ol>";
+}
+
+// ----------------- Restart -----------------
+function restartGame(){
+  leaderboardContainer.classList.add("hidden");
+  startScreen.style.display="flex";
+  gameContainer.classList.add("hidden");
+  index=0; score=0; chances=3; timer=10;
+  levelText.innerText=""; scoreText.innerText="Score: 0"; message.innerHTML=""; updateLives();
+}
+
+// ----------------- Confetti -----------------
+function createConfetti(){
+  for(let i=0;i<30;i++){
+    const c=document.createElement("div");
+    c.classList.add("confetti");
+    c.style.backgroundColor=`hsl(${Math.random()*360},100%,50%)`;
+    c.style.left=Math.random()*100+"%";
+    c.style.width=c.style.height=Math.random()*8+5+"px";
+    document.body.appendChild(c);
+    setTimeout(()=>{ c.remove(); },3000);
+  }
+}
+</script>
+</body>
+</html>
