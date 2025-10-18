@@ -18,11 +18,10 @@ This website is an engaging **Computer Science Quiz** with multiple levels of di
 
 ## 🖼️ Screenshots
 
-(Add your screenshots below)
-Example:
-![Homepage Screenshot](screenshots/homepage.png)
-![Quiz Round Screenshot](screenshots/quiz-round.png)
-![Leaderboard Screenshot](screenshots/leaderboard.png)
+<img width="1920" height="781" alt="Screenshot (7)" src="https://github.com/user-attachments/assets/132d7430-8687-4651-a1d9-3dec5166a558" />
+
+<img width="1920" height="686" alt="Screenshot (9)" src="https://github.com/user-attachments/assets/bbfc84e6-0edc-4958-aec2-5c6c1e657827" />
+<img width="1920" height="740" alt="Screenshot (8)" src="https://github.com/user-attachments/assets/f2f53220-b2d4-4d80-8bf6-9a1d9a1a90c2" />
 
 ## 🛠️ Technologies Used
 
